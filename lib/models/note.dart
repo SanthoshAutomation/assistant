@@ -5,7 +5,7 @@ class Note {
   final int color;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final bool synced;
+  final bool synced; // SQLite only; always false on web
 
   const Note({
     required this.id,
@@ -17,8 +17,7 @@ class Note {
     this.synced = false,
   });
 
-  Note copyWith({String? title, String? body, int? color, bool? synced}) =>
-      Note(
+  Note copyWith({String? title, String? body, int? color, bool? synced}) => Note(
         id: id,
         title: title ?? this.title,
         body: body ?? this.body,
@@ -28,6 +27,7 @@ class Note {
         synced: synced ?? this.synced,
       );
 
+  // ---- SQLite (mobile) ----
   Map<String, dynamic> toMap() => {
         'id': id,
         'title': title,
@@ -48,14 +48,18 @@ class Note {
         synced: (map['synced'] as int) == 1,
       );
 
-  /// Parse a row returned by the PHP API (all values are strings from PDO).
+  // ---- PHP API (web + Android pull) ----
   factory Note.fromServerMap(Map<String, dynamic> map) => Note(
         id: map['id'] as String,
         title: map['title'] as String,
         body: (map['body'] ?? '') as String,
         color: int.tryParse(map['color'].toString()) ?? 0xFFFFF9C4,
-        createdAt: DateTime.tryParse(map['created_at'] as String) ?? DateTime.now(),
-        updatedAt: DateTime.tryParse(map['updated_at'] as String) ?? DateTime.now(),
+        createdAt:
+            DateTime.tryParse(map['created_at'] as String? ?? '') ??
+                DateTime.now(),
+        updatedAt:
+            DateTime.tryParse(map['updated_at'] as String? ?? '') ??
+                DateTime.now(),
         synced: true,
       );
 

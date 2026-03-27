@@ -25,14 +25,13 @@ class SyncService {
     await prefs.setString(_apiUrlKey, url.trim());
   }
 
-  /// Push all local data up to the server.
+  /// Push all local SQLite data up to the server (Android backup).
   static Future<SyncResult> syncToCloud() async {
     final baseUrl = await getApiUrl();
     if (baseUrl == null || baseUrl.isEmpty) {
       return const SyncResult(
-        success: false,
-        message: 'No API URL configured. Please set it in Settings.',
-      );
+          success: false,
+          message: 'No API URL configured. Please set it below.');
     }
     try {
       final data = await DatabaseHelper.instance.getAllForSync();
@@ -43,65 +42,58 @@ class SyncService {
             body: jsonEncode(data),
           )
           .timeout(const Duration(seconds: 30));
-
       if (response.statusCode == 200) {
         await DatabaseHelper.instance.markAllSynced();
         return const SyncResult(
-          success: true,
-          message: 'All data synced to cloud! ✨',
-        );
+            success: true, message: 'All data pushed to cloud! ✨');
       }
       return SyncResult(
-        success: false,
-        message: 'Server error: ${response.statusCode}',
-      );
+          success: false,
+          message: 'Server error: ${response.statusCode}');
     } catch (e) {
-      return SyncResult(success: false, message: 'Sync failed: $e');
+      return SyncResult(success: false, message: 'Push failed: $e');
     }
   }
 
-  /// Pull all data from the server and upsert into local SQLite.
-  /// Use this when reinstalling or switching phones.
+  /// Pull all data from the server and upsert into local SQLite (Android restore).
   static Future<SyncResult> pullFromCloud() async {
     final baseUrl = await getApiUrl();
     if (baseUrl == null || baseUrl.isEmpty) {
       return const SyncResult(
-        success: false,
-        message: 'No API URL configured. Please set it in Settings.',
-      );
+          success: false,
+          message: 'No API URL configured. Please set it below.');
     }
     try {
       final response = await http
           .get(Uri.parse('$baseUrl/pull.php'))
           .timeout(const Duration(seconds: 30));
-
       if (response.statusCode != 200) {
         return SyncResult(
-          success: false,
-          message: 'Server error: ${response.statusCode}',
-        );
+            success: false,
+            message: 'Server error: ${response.statusCode}');
       }
-
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final db = DatabaseHelper.instance;
       int notes = 0, todos = 0, events = 0;
-
       for (final m in (data['notes'] as List? ?? [])) {
-        await db.insertNote(Note.fromServerMap(Map<String, dynamic>.from(m as Map)));
+        await db.insertNote(
+            Note.fromServerMap(Map<String, dynamic>.from(m as Map)));
         notes++;
       }
       for (final m in (data['todos'] as List? ?? [])) {
-        await db.insertTodo(Todo.fromServerMap(Map<String, dynamic>.from(m as Map)));
+        await db.insertTodo(
+            Todo.fromServerMap(Map<String, dynamic>.from(m as Map)));
         todos++;
       }
       for (final m in (data['events'] as List? ?? [])) {
-        await db.insertEvent(Event.fromServerMap(Map<String, dynamic>.from(m as Map)));
+        await db.insertEvent(
+            Event.fromServerMap(Map<String, dynamic>.from(m as Map)));
         events++;
       }
-
       return SyncResult(
         success: true,
-        message: 'Pulled from cloud: $notes notes, $todos todos, $events events 😊',
+        message:
+            'Pulled from cloud: $notes notes, $todos todos, $events events 😊',
       );
     } catch (e) {
       return SyncResult(success: false, message: 'Pull failed: $e');
