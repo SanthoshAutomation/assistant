@@ -2,18 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/todos_provider.dart';
+import '../../models/todo.dart';
 
 class AddTodoScreen extends StatefulWidget {
-  const AddTodoScreen({super.key});
+  /// Pass an existing [todo] to open in edit mode, or null to add a new one.
+  final Todo? todo;
+  const AddTodoScreen({super.key, this.todo});
 
   @override
   State<AddTodoScreen> createState() => _AddTodoScreenState();
 }
 
 class _AddTodoScreenState extends State<AddTodoScreen> {
-  final _titleCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _descCtrl;
   DateTime? _dueDate;
+  bool _isSaving = false;
+
+  bool get _isEditing => widget.todo != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleCtrl = TextEditingController(text: widget.todo?.title ?? '');
+    _descCtrl = TextEditingController(text: widget.todo?.description ?? '');
+    _dueDate = widget.todo?.dueDate;
+  }
 
   @override
   void dispose() {
@@ -23,17 +37,22 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
   }
 
   Future<void> _pickDateTime() async {
+    final now = DateTime.now();
+    final initial = (_dueDate != null && _dueDate!.isAfter(now))
+        ? _dueDate!
+        : now.add(const Duration(hours: 1));
+
     final date = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().add(const Duration(hours: 1)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: initial,
+      firstDate: now.subtract(const Duration(days: 1)),
+      lastDate: now.add(const Duration(days: 365 * 3)),
     );
     if (date == null || !mounted) return;
 
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: TimeOfDay.fromDateTime(initial),
     );
     if (time == null || !mounted) return;
 
@@ -49,19 +68,33 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
           .showSnackBar(const SnackBar(content: Text('Title is required')));
       return;
     }
-    await context.read<TodosProvider>().add(
-          title: title,
-          description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-          dueDate: _dueDate,
-        );
+
+    setState(() => _isSaving = true);
+
+    final desc = _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim();
+    final provider = context.read<TodosProvider>();
+
+    if (_isEditing) {
+      await provider.update(
+        original: widget.todo!,
+        title: title,
+        description: desc,
+        dueDate: _dueDate,
+      );
+    } else {
+      await provider.add(title: title, description: desc, dueDate: _dueDate);
+    }
+
     if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('EEE, MMM d \u2022 h:mm a');
+    final isFuture = _dueDate != null && _dueDate!.isAfter(DateTime.now());
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Task')),
+      appBar: AppBar(title: Text(_isEditing ? 'Edit Task' : 'Add Task')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -69,7 +102,8 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
           children: [
             TextField(
               controller: _titleCtrl,
-              autofocus: true,
+              autofocus: !_isEditing,
+              textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
                 labelText: 'Task title *',
                 border: OutlineInputBorder(),
@@ -79,6 +113,7 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
             TextField(
               controller: _descCtrl,
               maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
                 labelText: 'Description (optional)',
                 border: OutlineInputBorder(),
@@ -89,6 +124,7 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
             const SizedBox(height: 8),
             InkWell(
               onTap: _pickDateTime,
+              borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -99,22 +135,21 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
                   children: [
                     const Icon(Icons.alarm, color: Colors.orange),
                     const SizedBox(width: 8),
-                    Text(
-                      _dueDate == null
-                          ? 'Set reminder date & time'
-                          : fmt.format(_dueDate!),
-                      style: TextStyle(
-                        color:
-                            _dueDate == null ? Colors.grey : Colors.black87,
+                    Expanded(
+                      child: Text(
+                        _dueDate == null
+                            ? 'Set reminder date & time'
+                            : fmt.format(_dueDate!),
+                        style: TextStyle(
+                          color: _dueDate == null ? Colors.grey : Colors.black87,
+                        ),
                       ),
                     ),
-                    if (_dueDate != null) ...[  
-                      const Spacer(),
+                    if (_dueDate != null)
                       GestureDetector(
                         onTap: () => setState(() => _dueDate = null),
-                        child: const Icon(Icons.close, size: 16),
+                        child: const Icon(Icons.close, size: 18),
                       ),
-                    ],
                   ],
                 ),
               ),
@@ -124,11 +159,21 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, size: 14, color: Colors.blue),
+                    Icon(
+                      isFuture ? Icons.info_outline : Icons.history,
+                      size: 14,
+                      color: isFuture ? Colors.blue : Colors.orange,
+                    ),
                     const SizedBox(width: 4),
-                    Text(
-                      "You'll get a friendly reminder at this time \ud83d\ude0a",
-                      style: Theme.of(context).textTheme.bodySmall,
+                    Expanded(
+                      child: Text(
+                        isFuture
+                            ? "You'll get a friendly reminder at this time 😊"
+                            : 'This time has passed \u2014 no reminder will be set',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: isFuture ? Colors.blue : Colors.orange,
+                            ),
+                      ),
                     ),
                   ],
                 ),
@@ -137,8 +182,15 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: _save,
-                child: const Text('Save Task'),
+                onPressed: _isSaving ? null : _save,
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(_isEditing ? 'Update Task' : 'Save Task'),
               ),
             ),
           ],
