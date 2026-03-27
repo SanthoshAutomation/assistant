@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/todo.dart';
+import '../db/database_helper.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 
 class TodosProvider extends ChangeNotifier {
   List<Todo> _todos = [];
@@ -21,7 +24,9 @@ class TodosProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _todos = await ApiService.fetchTodos();
+      _todos = kIsWeb
+          ? await ApiService.fetchTodos()
+          : await DatabaseHelper.instance.getTodos();
     } catch (e) {
       _error = 'Could not load todos: $e';
     }
@@ -34,14 +39,27 @@ class TodosProvider extends ChangeNotifier {
     String? description,
     DateTime? dueDate,
   }) async {
+    // Schedule notification on mobile only
+    int? notifId;
+    if (!kIsWeb && dueDate != null && dueDate.isAfter(DateTime.now())) {
+      notifId = await NotificationService.instance.scheduleTodoReminder(
+        title: title,
+        scheduledAt: dueDate,
+      );
+    }
     final todo = Todo(
       id: _uuid.v4(),
       title: title,
       description: description,
       dueDate: dueDate,
+      notificationId: notifId,
       createdAt: DateTime.now(),
     );
-    await ApiService.saveTodo(todo);
+    if (kIsWeb) {
+      await ApiService.saveTodo(todo);
+    } else {
+      await DatabaseHelper.instance.insertTodo(todo);
+    }
     _todos.insert(0, todo);
     notifyListeners();
   }
@@ -52,15 +70,33 @@ class TodosProvider extends ChangeNotifier {
     String? description,
     DateTime? dueDate,
   }) async {
+    if (!kIsWeb && original.notificationId != null) {
+      await NotificationService.instance
+          .cancelNotification(original.notificationId!);
+    }
+    int? notifId;
+    if (!kIsWeb && dueDate != null && dueDate.isAfter(DateTime.now())) {
+      notifId = await NotificationService.instance.scheduleTodoReminder(
+        title: title,
+        scheduledAt: dueDate,
+      );
+    }
     final updated = Todo(
       id: original.id,
       title: title,
-      description: description?.trim().isEmpty == true ? null : description,
+      description:
+          description?.trim().isEmpty == true ? null : description,
       isDone: original.isDone,
       dueDate: dueDate,
+      notificationId: notifId,
+      synced: false,
       createdAt: original.createdAt,
     );
-    await ApiService.saveTodo(updated);
+    if (kIsWeb) {
+      await ApiService.saveTodo(updated);
+    } else {
+      await DatabaseHelper.instance.updateTodo(updated);
+    }
     final idx = _todos.indexWhere((t) => t.id == original.id);
     if (idx != -1) {
       _todos[idx] = updated;
@@ -72,13 +108,26 @@ class TodosProvider extends ChangeNotifier {
     final idx = _todos.indexWhere((t) => t.id == id);
     if (idx == -1) return;
     final updated = _todos[idx].copyWith(isDone: !_todos[idx].isDone);
-    await ApiService.saveTodo(updated);
+    if (kIsWeb) {
+      await ApiService.saveTodo(updated);
+    } else {
+      await DatabaseHelper.instance.updateTodo(updated);
+    }
     _todos[idx] = updated;
     notifyListeners();
   }
 
   Future<void> delete(String id) async {
-    await ApiService.deleteTodo(id);
+    final todo = _todos.firstWhere((t) => t.id == id);
+    if (!kIsWeb && todo.notificationId != null) {
+      await NotificationService.instance
+          .cancelNotification(todo.notificationId!);
+    }
+    if (kIsWeb) {
+      await ApiService.deleteTodo(id);
+    } else {
+      await DatabaseHelper.instance.deleteTodo(id);
+    }
     _todos.removeWhere((t) => t.id == id);
     notifyListeners();
   }

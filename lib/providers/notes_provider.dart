@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/note.dart';
+import '../db/database_helper.dart';
 import '../services/api_service.dart';
 
 class NotesProvider extends ChangeNotifier {
@@ -19,7 +21,9 @@ class NotesProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _notes = await ApiService.fetchNotes();
+      _notes = kIsWeb
+          ? await ApiService.fetchNotes()
+          : await DatabaseHelper.instance.getNotes();
     } catch (e) {
       _error = 'Could not load notes: $e';
     }
@@ -40,13 +44,21 @@ class NotesProvider extends ChangeNotifier {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
-    await ApiService.saveNote(note);
+    if (kIsWeb) {
+      await ApiService.saveNote(note);
+    } else {
+      await DatabaseHelper.instance.insertNote(note);
+    }
     _notes.insert(0, note);
     notifyListeners();
   }
 
   Future<void> update(Note note) async {
-    await ApiService.saveNote(note);
+    if (kIsWeb) {
+      await ApiService.saveNote(note);
+    } else {
+      await DatabaseHelper.instance.updateNote(note);
+    }
     final idx = _notes.indexWhere((n) => n.id == note.id);
     if (idx != -1) {
       _notes[idx] = note;
@@ -55,7 +67,11 @@ class NotesProvider extends ChangeNotifier {
   }
 
   Future<void> delete(String id) async {
-    await ApiService.deleteNote(id);
+    if (kIsWeb) {
+      await ApiService.deleteNote(id);
+    } else {
+      await DatabaseHelper.instance.deleteNote(id);
+    }
     _notes.removeWhere((n) => n.id == id);
     notifyListeners();
   }

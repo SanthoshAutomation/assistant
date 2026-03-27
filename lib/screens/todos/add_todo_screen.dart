@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -40,7 +41,6 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
     final initial = (_dueDate != null && _dueDate!.isAfter(now))
         ? _dueDate!
         : now.add(const Duration(hours: 1));
-
     final date = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -48,17 +48,13 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
       lastDate: DateTime(2030),
     );
     if (date == null || !mounted) return;
-
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initial),
     );
     if (time == null || !mounted) return;
-
-    setState(() {
-      _dueDate =
-          DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    });
+    setState(() => _dueDate =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute));
   }
 
   Future<void> _save() async {
@@ -71,15 +67,14 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
     setState(() => _isSaving = true);
     final desc =
         _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim();
-    final provider = context.read<TodosProvider>();
     try {
+      final provider = context.read<TodosProvider>();
       if (_isEditing) {
         await provider.update(
-          original: widget.todo!,
-          title: title,
-          description: desc,
-          dueDate: _dueDate,
-        );
+            original: widget.todo!,
+            title: title,
+            description: desc,
+            dueDate: _dueDate);
       } else {
         await provider.add(title: title, description: desc, dueDate: _dueDate);
       }
@@ -87,12 +82,10 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
     } catch (e) {
       setState(() => _isSaving = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Save failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Save failed: $e'),
+          backgroundColor: Colors.red,
+        ));
       }
     }
   }
@@ -100,6 +93,8 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('EEE, MMM d \u2022 h:mm a');
+    final isFuture = _dueDate != null && _dueDate!.isAfter(DateTime.now());
+
     return Scaffold(
       appBar: AppBar(title: Text(_isEditing ? 'Edit Task' : 'Add Task')),
       body: Padding(
@@ -127,8 +122,11 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text('Due date / time',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            // On web: label is "Due date". On mobile: "Reminder"
+            Text(
+              kIsWeb ? 'Due date / time' : 'Reminder',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             InkWell(
               onTap: _pickDateTime,
@@ -141,12 +139,17 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.event, color: Colors.blue),
+                    Icon(
+                      kIsWeb ? Icons.event : Icons.alarm,
+                      color: kIsWeb ? Colors.blue : Colors.orange,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _dueDate == null
-                            ? 'Set due date & time (optional)'
+                            ? (kIsWeb
+                                ? 'Set due date & time (optional)'
+                                : 'Set reminder date & time')
                             : fmt.format(_dueDate!),
                         style: TextStyle(
                           color:
@@ -163,6 +166,46 @@ class _AddTodoScreenState extends State<AddTodoScreen> {
                 ),
               ),
             ),
+            // Show notification hint on mobile only
+            if (!kIsWeb && _dueDate != null && isFuture)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.notifications_active,
+                        size: 14, color: Colors.blue),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        "You'll get a friendly reminder at this time 😊",
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.blue),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (_dueDate != null && !isFuture)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history, size: 14, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      kIsWeb
+                          ? 'This date is in the past'
+                          : 'Past time \u2014 no reminder will be set',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: Colors.orange),
+                    ),
+                  ],
+                ),
+              ),
             const Spacer(),
             SizedBox(
               width: double.infinity,

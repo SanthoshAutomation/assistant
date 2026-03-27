@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/event.dart';
+import '../db/database_helper.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 
 class EventsProvider extends ChangeNotifier {
   List<Event> _events = [];
@@ -19,7 +22,9 @@ class EventsProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _events = await ApiService.fetchEvents();
+      _events = kIsWeb
+          ? await ApiService.fetchEvents()
+          : await DatabaseHelper.instance.getEvents();
     } catch (e) {
       _error = 'Could not load events: $e';
     }
@@ -31,7 +36,8 @@ class EventsProvider extends ChangeNotifier {
     return _events.where((e) {
       final start = DateTime(e.date.year, e.date.month, e.date.day);
       final end = e.endDate != null
-          ? DateTime(e.endDate!.year, e.endDate!.month, e.endDate!.day)
+          ? DateTime(
+              e.endDate!.year, e.endDate!.month, e.endDate!.day)
           : start;
       final d = DateTime(day.year, day.month, day.day);
       return !d.isBefore(start) && !d.isAfter(end);
@@ -45,6 +51,13 @@ class EventsProvider extends ChangeNotifier {
     DateTime? endDate,
     required EventType type,
   }) async {
+    int? notifId;
+    if (!kIsWeb && date.isAfter(DateTime.now())) {
+      notifId = await NotificationService.instance.scheduleEventReminder(
+        title: title,
+        scheduledAt: date,
+      );
+    }
     final event = Event(
       id: _uuid.v4(),
       title: title,
@@ -52,15 +65,29 @@ class EventsProvider extends ChangeNotifier {
       date: date,
       endDate: endDate,
       type: type,
+      notificationId: notifId,
     );
-    await ApiService.saveEvent(event);
+    if (kIsWeb) {
+      await ApiService.saveEvent(event);
+    } else {
+      await DatabaseHelper.instance.insertEvent(event);
+    }
     _events.add(event);
     _events.sort((a, b) => a.date.compareTo(b.date));
     notifyListeners();
   }
 
   Future<void> delete(String id) async {
-    await ApiService.deleteEvent(id);
+    final event = _events.firstWhere((e) => e.id == id);
+    if (!kIsWeb && event.notificationId != null) {
+      await NotificationService.instance
+          .cancelNotification(event.notificationId!);
+    }
+    if (kIsWeb) {
+      await ApiService.deleteEvent(id);
+    } else {
+      await DatabaseHelper.instance.deleteEvent(id);
+    }
     _events.removeWhere((e) => e.id == id);
     notifyListeners();
   }
