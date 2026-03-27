@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+handleCors();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDb();
@@ -19,9 +20,9 @@ switch ($method) {
             INSERT INTO notes (id, title, body, color, created_at, updated_at)
             VALUES (:id, :title, :body, :color, :created_at, :updated_at)
             ON DUPLICATE KEY UPDATE
-              title = VALUES(title),
-              body = VALUES(body),
-              color = VALUES(color),
+              title      = VALUES(title),
+              body       = VALUES(body),
+              color      = VALUES(color),
               updated_at = VALUES(updated_at)
         ');
         $stmt->execute([

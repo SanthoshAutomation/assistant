@@ -4,8 +4,8 @@ class Todo {
   final String? description;
   final bool isDone;
   final DateTime? dueDate;
-  final int? notificationId;
-  final bool synced;
+  final int? notificationId; // mobile only
+  final bool synced;         // mobile only
   final DateTime createdAt;
 
   const Todo({
@@ -38,6 +38,7 @@ class Todo {
         createdAt: createdAt,
       );
 
+  // ---- SQLite (mobile) ----
   Map<String, dynamic> toMap() => {
         'id': id,
         'title': title,
@@ -62,7 +63,7 @@ class Todo {
         createdAt: DateTime.parse(map['created_at'] as String),
       );
 
-  /// Parse a row returned by the PHP API (all values are strings from PDO).
+  // ---- PHP API (web + Android pull) ----
   factory Todo.fromServerMap(Map<String, dynamic> map) => Todo(
         id: map['id'] as String,
         title: map['title'] as String,
@@ -73,16 +74,16 @@ class Todo {
             ? DateTime.tryParse(map['due_date'] as String)
             : null,
         synced: true,
-        createdAt: DateTime.tryParse(
-                map['created_at'] as String? ?? '') ??
-            DateTime.now(),
+        createdAt:
+            DateTime.tryParse(map['created_at'] as String? ?? '') ??
+                DateTime.now(),
       );
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
         'description': description,
-        'is_done': isDone,
+        'is_done': isDone ? 1 : 0,
         'due_date': dueDate?.toIso8601String(),
         'created_at': createdAt.toIso8601String(),
       };

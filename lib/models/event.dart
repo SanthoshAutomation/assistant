@@ -7,8 +7,8 @@ class Event {
   final DateTime date;
   final DateTime? endDate;
   final EventType type;
-  final int? notificationId;
-  final bool synced;
+  final int? notificationId; // mobile only
+  final bool synced;         // mobile only
 
   const Event({
     required this.id,
@@ -44,6 +44,7 @@ class Event {
         synced: synced ?? this.synced,
       );
 
+  // ---- SQLite (mobile) ----
   Map<String, dynamic> toMap() => {
         'id': id,
         'title': title,
@@ -71,7 +72,7 @@ class Event {
         synced: (map['synced'] as int) == 1,
       );
 
-  /// Parse a row returned by the PHP API (all values are strings from PDO).
+  // ---- PHP API (web + Android pull) ----
   factory Event.fromServerMap(Map<String, dynamic> map) => Event(
         id: map['id'] as String,
         title: map['title'] as String,

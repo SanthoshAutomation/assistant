@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:timezone/data/latest_all.dart' as tzdata;
-import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter_timezone/flutter_timezone.dart';
-import 'services/notification_service.dart';
+import 'utils/platform_init.dart';
 import 'providers/notes_provider.dart';
 import 'providers/todos_provider.dart';
 import 'providers/events_provider.dart';
@@ -11,11 +8,8 @@ import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialize timezone data and set to device local timezone
-  tzdata.initializeTimeZones();
-  final String localTz = await FlutterTimezone.getLocalTimezone();
-  tz.setLocalLocation(tz.getLocation(localTz));
-  await NotificationService.instance.init();
+  // On mobile: inits timezone + notifications. On web: no-op.
+  await initPlatform();
   runApp(const AssistantApp());
 }
 
@@ -40,14 +34,11 @@ class AssistantApp extends StatelessWidget {
           ),
           useMaterial3: true,
           fontFamily: 'Roboto',
-          cardTheme: const CardThemeData(
+          cardTheme: const CardTheme(
             elevation: 2,
             margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           ),
-          appBarTheme: const AppBarTheme(
-            centerTitle: true,
-            elevation: 0,
-          ),
+          appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
         ),
         home: const HomeScreen(),
       ),

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+handleCors();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDb();
@@ -19,11 +20,11 @@ switch ($method) {
             INSERT INTO events (id, title, notes, date, end_date, type)
             VALUES (:id, :title, :notes, :date, :end_date, :type)
             ON DUPLICATE KEY UPDATE
-              title = VALUES(title),
-              notes = VALUES(notes),
-              date = VALUES(date),
+              title    = VALUES(title),
+              notes    = VALUES(notes),
+              date     = VALUES(date),
               end_date = VALUES(end_date),
-              type = VALUES(type)
+              type     = VALUES(type)
         ');
         $stmt->execute([
             ':id'       => $data['id'],
