@@ -17,22 +17,16 @@ class Note {
     this.synced = false,
   });
 
-  Note copyWith({
-    String? title,
-    String? body,
-    int? color,
-    bool? synced,
-  }) {
-    return Note(
-      id: id,
-      title: title ?? this.title,
-      body: body ?? this.body,
-      color: color ?? this.color,
-      createdAt: createdAt,
-      updatedAt: DateTime.now(),
-      synced: synced ?? this.synced,
-    );
-  }
+  Note copyWith({String? title, String? body, int? color, bool? synced}) =>
+      Note(
+        id: id,
+        title: title ?? this.title,
+        body: body ?? this.body,
+        color: color ?? this.color,
+        createdAt: createdAt,
+        updatedAt: DateTime.now(),
+        synced: synced ?? this.synced,
+      );
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -52,6 +46,17 @@ class Note {
         createdAt: DateTime.parse(map['created_at'] as String),
         updatedAt: DateTime.parse(map['updated_at'] as String),
         synced: (map['synced'] as int) == 1,
+      );
+
+  /// Parse a row returned by the PHP API (all values are strings from PDO).
+  factory Note.fromServerMap(Map<String, dynamic> map) => Note(
+        id: map['id'] as String,
+        title: map['title'] as String,
+        body: (map['body'] ?? '') as String,
+        color: int.tryParse(map['color'].toString()) ?? 0xFFFFF9C4,
+        createdAt: DateTime.tryParse(map['created_at'] as String) ?? DateTime.now(),
+        updatedAt: DateTime.tryParse(map['updated_at'] as String) ?? DateTime.now(),
+        synced: true,
       );
 
   Map<String, dynamic> toJson() => {

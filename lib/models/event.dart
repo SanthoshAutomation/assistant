@@ -32,18 +32,17 @@ class Event {
     EventType? type,
     int? notificationId,
     bool? synced,
-  }) {
-    return Event(
-      id: id,
-      title: title ?? this.title,
-      notes: notes ?? this.notes,
-      date: date ?? this.date,
-      endDate: endDate ?? this.endDate,
-      type: type ?? this.type,
-      notificationId: notificationId ?? this.notificationId,
-      synced: synced ?? this.synced,
-    );
-  }
+  }) =>
+      Event(
+        id: id,
+        title: title ?? this.title,
+        notes: notes ?? this.notes,
+        date: date ?? this.date,
+        endDate: endDate ?? this.endDate,
+        type: type ?? this.type,
+        notificationId: notificationId ?? this.notificationId,
+        synced: synced ?? this.synced,
+      );
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -70,6 +69,23 @@ class Event {
         ),
         notificationId: map['notification_id'] as int?,
         synced: (map['synced'] as int) == 1,
+      );
+
+  /// Parse a row returned by the PHP API (all values are strings from PDO).
+  factory Event.fromServerMap(Map<String, dynamic> map) => Event(
+        id: map['id'] as String,
+        title: map['title'] as String,
+        notes: map['notes'] as String?,
+        date: DateTime.parse(map['date'] as String),
+        endDate: (map['end_date'] != null &&
+                (map['end_date'] as String).isNotEmpty)
+            ? DateTime.tryParse(map['end_date'] as String)
+            : null,
+        type: EventType.values.firstWhere(
+          (e) => e.name == map['type'],
+          orElse: () => EventType.other,
+        ),
+        synced: true,
       );
 
   Map<String, dynamic> toJson() => {
