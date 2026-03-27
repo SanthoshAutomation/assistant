@@ -7,8 +7,6 @@ class Event {
   final DateTime date;
   final DateTime? endDate;
   final EventType type;
-  final int? notificationId;
-  final bool synced;
 
   const Event({
     required this.id,
@@ -17,8 +15,6 @@ class Event {
     required this.date,
     this.endDate,
     this.type = EventType.other,
-    this.notificationId,
-    this.synced = false,
   });
 
   bool get isMultiDay =>
@@ -30,8 +26,6 @@ class Event {
     DateTime? date,
     DateTime? endDate,
     EventType? type,
-    int? notificationId,
-    bool? synced,
   }) =>
       Event(
         id: id,
@@ -40,38 +34,8 @@ class Event {
         date: date ?? this.date,
         endDate: endDate ?? this.endDate,
         type: type ?? this.type,
-        notificationId: notificationId ?? this.notificationId,
-        synced: synced ?? this.synced,
       );
 
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'title': title,
-        'notes': notes,
-        'date': date.toIso8601String(),
-        'end_date': endDate?.toIso8601String(),
-        'type': type.name,
-        'notification_id': notificationId,
-        'synced': synced ? 1 : 0,
-      };
-
-  factory Event.fromMap(Map<String, dynamic> map) => Event(
-        id: map['id'] as String,
-        title: map['title'] as String,
-        notes: map['notes'] as String?,
-        date: DateTime.parse(map['date'] as String),
-        endDate: map['end_date'] != null
-            ? DateTime.parse(map['end_date'] as String)
-            : null,
-        type: EventType.values.firstWhere(
-          (e) => e.name == map['type'],
-          orElse: () => EventType.other,
-        ),
-        notificationId: map['notification_id'] as int?,
-        synced: (map['synced'] as int) == 1,
-      );
-
-  /// Parse a row returned by the PHP API (all values are strings from PDO).
   factory Event.fromServerMap(Map<String, dynamic> map) => Event(
         id: map['id'] as String,
         title: map['title'] as String,
@@ -85,7 +49,6 @@ class Event {
           (e) => e.name == map['type'],
           orElse: () => EventType.other,
         ),
-        synced: true,
       );
 
   Map<String, dynamic> toJson() => {
