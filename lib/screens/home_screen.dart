@@ -6,7 +6,7 @@ import '../providers/events_provider.dart';
 import 'notes/notes_screen.dart';
 import 'todos/todos_screen.dart';
 import 'calendar/calendar_screen.dart';
-import 'settings/settings_screen.dart';
+import 'info/info_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
     NotesScreen(),
     TodosScreen(),
     CalendarScreen(),
-    SettingsScreen(),
+    InfoScreen(),
   ];
 
   @override
@@ -59,9 +59,9 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Calendar',
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
+            icon: Icon(Icons.info_outline),
+            selectedIcon: Icon(Icons.info),
+            label: 'Info',
           ),
         ],
       ),
