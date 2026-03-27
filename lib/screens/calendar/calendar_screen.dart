@@ -6,6 +6,20 @@ import '../../providers/events_provider.dart';
 import '../../models/event.dart';
 import 'add_event_screen.dart';
 
+const _typeColors = {
+  EventType.appointment: Colors.blue,
+  EventType.vacation: Colors.green,
+  EventType.reminder: Colors.orange,
+  EventType.other: Colors.purple,
+};
+
+const _typeIcons = {
+  EventType.appointment: Icons.medical_services_outlined,
+  EventType.vacation: Icons.beach_access_outlined,
+  EventType.reminder: Icons.alarm,
+  EventType.other: Icons.event_outlined,
+};
+
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
 
@@ -17,6 +31,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
   CalendarFormat _format = CalendarFormat.month;
+
+  void _goToDate(DateTime date) {
+    setState(() {
+      _selectedDay = date;
+      _focusedDay = date;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +59,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       body: Consumer<EventsProvider>(
         builder: (context, provider, _) {
           final selectedEvents = provider.eventsForDay(_selectedDay);
+          final allEvents = provider.events;
 
           return Column(
             children: [
@@ -48,20 +70,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                 calendarFormat: _format,
                 eventLoader: provider.eventsForDay,
-                onDaySelected: (selected, focused) {
-                  setState(() {
-                    _selectedDay = selected;
-                    _focusedDay = focused;
-                  });
-                },
+                onDaySelected: (selected, focused) => setState(() {
+                  _selectedDay = selected;
+                  _focusedDay = focused;
+                }),
                 onFormatChanged: (f) => setState(() => _format = f),
                 onPageChanged: (focused) => _focusedDay = focused,
                 calendarStyle: CalendarStyle(
                   todayDecoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withOpacity(0.4),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.35),
                     shape: BoxShape.circle,
                   ),
                   selectedDecoration: BoxDecoration(
@@ -75,33 +92,49 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ),
               const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Row(
+              // Scrollable events list
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 88),
                   children: [
-                    Text(
-                      DateFormat('MMMM d, yyyy').format(_selectedDay),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    // ---- Events on selected day ----
+                    if (selectedEvents.isNotEmpty) ...
+                        _buildSection(
+                          context,
+                          icon: Icons.today,
+                          title:
+                              'On ${DateFormat('MMM d').format(_selectedDay)} (${selectedEvents.length})',
+                          color: Theme.of(context).colorScheme.primary,
+                          events: selectedEvents,
+                          provider: provider,
+                          onTap: null, // already on this date
+                        ),
+
+                    // ---- All events ----
+                    _SectionHeader(
+                      icon: Icons.calendar_month,
+                      title: 'All Events (${allEvents.length})',
+                      color: Colors.grey.shade700,
                     ),
-                    const Spacer(),
-                    Text(
-                      '${selectedEvents.length} event${selectedEvents.length == 1 ? '' : 's'}',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
+                    if (allEvents.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text('No events yet. Tap + to add one!',
+                              style: TextStyle(color: Colors.grey)),
+                        ),
+                      )
+                    else
+                      ...allEvents.map(
+                        (e) => _EventTile(
+                          event: e,
+                          provider: provider,
+                          // Tap to navigate calendar to that date
+                          onTap: () => _goToDate(e.date),
+                        ),
+                      ),
                   ],
                 ),
-              ),
-              Expanded(
-                child: selectedEvents.isEmpty
-                    ? const Center(
-                        child: Text('No events on this day',
-                            style: TextStyle(color: Colors.grey)))
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 80),
-                        itemCount: selectedEvents.length,
-                        itemBuilder: (context, i) =>
-                            _EventTile(event: selectedEvents[i], provider: provider),
-                      ),
               ),
             ],
           );
@@ -109,33 +142,74 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+
+  List<Widget> _buildSection(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Color color,
+    required List<Event> events,
+    required EventsProvider provider,
+    required VoidCallback? onTap,
+  }) {
+    return [
+      _SectionHeader(icon: icon, title: title, color: color),
+      ...events.map(
+        (e) => _EventTile(event: e, provider: provider, onTap: onTap),
+      ),
+    ];
+  }
 }
 
-const _typeColors = {
-  EventType.appointment: Colors.blue,
-  EventType.vacation: Colors.green,
-  EventType.reminder: Colors.orange,
-  EventType.other: Colors.purple,
-};
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    required this.color,
+  });
 
-const _typeIcons = {
-  EventType.appointment: Icons.medical_services_outlined,
-  EventType.vacation: Icons.beach_access_outlined,
-  EventType.reminder: Icons.alarm,
-  EventType.other: Icons.event_outlined,
-};
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _EventTile extends StatelessWidget {
   final Event event;
   final EventsProvider provider;
-  const _EventTile({required this.event, required this.provider});
+  final VoidCallback? onTap;
+
+  const _EventTile({
+    required this.event,
+    required this.provider,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final fmt = DateFormat('h:mm a');
+    final fmt = DateFormat('MMM d, h:mm a');
     final color = _typeColors[event.type] ?? Colors.purple;
     return Dismissible(
-      key: Key(event.id),
+      key: Key('evt_${event.id}'),
       direction: DismissDirection.endToStart,
       background: Container(
         color: Colors.red,
@@ -146,6 +220,7 @@ class _EventTile extends StatelessWidget {
       onDismissed: (_) => provider.delete(event.id),
       child: Card(
         child: ListTile(
+          onTap: onTap,
           leading: CircleAvatar(
             backgroundColor: color.withOpacity(0.15),
             child: Icon(_typeIcons[event.type], color: color, size: 20),

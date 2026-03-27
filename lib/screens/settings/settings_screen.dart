@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../../services/sync_service.dart';
+import '../../providers/notes_provider.dart';
+import '../../providers/todos_provider.dart';
+import '../../providers/events_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -12,6 +15,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _urlCtrl = TextEditingController();
   bool _isSyncing = false;
+  bool _isPulling = false;
 
   @override
   void initState() {
@@ -21,7 +25,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadUrl() async {
     final url = await SyncService.getApiUrl();
-    if (url != null) _urlCtrl.text = url;
+    if (url != null && mounted) setState(() => _urlCtrl.text = url);
   }
 
   @override
@@ -34,12 +38,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await SyncService.setApiUrl(_urlCtrl.text);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('API URL saved \u2713')),
+        const SnackBar(content: Text('API URL saved ✓')),
       );
     }
   }
 
   Future<void> _sync() async {
+    await SyncService.setApiUrl(_urlCtrl.text); // save latest URL first
     setState(() => _isSyncing = true);
     final result = await SyncService.syncToCloud();
     setState(() => _isSyncing = false);
@@ -53,6 +58,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Pull all data from the server then reload providers so the UI updates.
+  Future<void> _pull() async {
+    await SyncService.setApiUrl(_urlCtrl.text);
+    setState(() => _isPulling = true);
+    final result = await SyncService.pullFromCloud();
+    setState(() => _isPulling = false);
+    if (mounted) {
+      if (result.success) {
+        // Reload all providers so the pulled data appears immediately
+        await Future.wait([
+          context.read<NotesProvider>().load(),
+          context.read<TodosProvider>().load(),
+          context.read<EventsProvider>().load(),
+        ]);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: result.success ? Colors.green : Colors.red,
+        ),
+      );
+    }
+  }
+
+  bool get _busy => _isSyncing || _isPulling;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -63,7 +94,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Cloud Sync section
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -77,13 +107,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(width: 8),
                       const Text(
                         'Cloud Sync (Hostinger)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   const Text(
-                    'Enter your Hostinger PHP API base URL to enable manual sync.',
+                    'Enter your Hostinger PHP API base URL. '  
+                    'Use \u201cPush to Cloud\u201d to back up, and \u201cPull from Cloud\u201d '
+                    'to restore on a new phone or after reinstalling.',
                     style: TextStyle(color: Colors.grey, fontSize: 13),
                   ),
                   const SizedBox(height: 12),
@@ -97,40 +130,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     keyboardType: TextInputType.url,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
+                  // Push row
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: _saveUrl,
-                          child: const Text('Save URL'),
+                        child: OutlinedButton.icon(
+                          onPressed: _busy ? null : _saveUrl,
+                          icon: const Icon(Icons.save_outlined, size: 18),
+                          label: const Text('Save URL'),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: _isSyncing ? null : _sync,
+                          onPressed: _busy ? null : _sync,
                           icon: _isSyncing
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
+                                      strokeWidth: 2, color: Colors.white),
                                 )
-                              : const Icon(Icons.cloud_upload),
-                          label: Text(_isSyncing ? 'Syncing...' : 'Sync Now'),
+                              : const Icon(Icons.cloud_upload, size: 18),
+                          label: Text(_isSyncing ? 'Syncing...' : 'Push to Cloud'),
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Pull row — full width for emphasis
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : _pull,
+                      icon: _isPulling
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.cloud_download_outlined, size: 18),
+                      label: Text(
+                        _isPulling ? 'Pulling...' : 'Pull from Cloud (Restore)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Pull restores all your data from the server \u2014 use after reinstalling or on a new phone.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
-          // About section
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -142,17 +197,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Icon(Icons.info_outline,
                           color: Theme.of(context).colorScheme.primary),
                       const SizedBox(width: 8),
-                      const Text(
-                        'About',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
+                      const Text('About',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
                   const SizedBox(height: 12),
                   const _InfoRow(label: 'App', value: 'My Assistant'),
                   const _InfoRow(label: 'Version', value: '1.0.0'),
                   const _InfoRow(label: 'Storage', value: 'Local SQLite'),
-                  const _InfoRow(label: 'Cloud', value: 'Hostinger MySQL (manual sync)'),
+                  const _InfoRow(
+                      label: 'Cloud', value: 'Hostinger MySQL (manual sync)'),
                 ],
               ),
             ),
@@ -179,7 +234,9 @@ class _InfoRow extends StatelessWidget {
             child: Text(label,
                 style: const TextStyle(color: Colors.grey, fontSize: 13)),
           ),
-          Text(value, style: const TextStyle(fontSize: 13)),
+          Expanded(
+            child: Text(value, style: const TextStyle(fontSize: 13)),
+          ),
         ],
       ),
     );

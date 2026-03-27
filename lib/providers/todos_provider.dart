@@ -42,6 +42,43 @@ class TodosProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Edit an existing todo, re-scheduling the notification if the due date changed.
+  Future<void> update({
+    required Todo original,
+    required String title,
+    String? description,
+    DateTime? dueDate,
+  }) async {
+    // Cancel old notification if any
+    if (original.notificationId != null) {
+      await NotificationService.instance.cancelNotification(original.notificationId!);
+    }
+    // Schedule new notification
+    int? notifId;
+    if (dueDate != null && dueDate.isAfter(DateTime.now())) {
+      notifId = await NotificationService.instance.scheduleTodoReminder(
+        title: title,
+        scheduledAt: dueDate,
+      );
+    }
+    final updated = Todo(
+      id: original.id,
+      title: title,
+      description: description?.trim().isEmpty == true ? null : description,
+      isDone: original.isDone,
+      dueDate: dueDate,
+      notificationId: notifId,
+      synced: false,
+      createdAt: original.createdAt,
+    );
+    await DatabaseHelper.instance.updateTodo(updated);
+    final idx = _todos.indexWhere((t) => t.id == original.id);
+    if (idx != -1) {
+      _todos[idx] = updated;
+      notifyListeners();
+    }
+  }
+
   Future<void> toggle(String id) async {
     final idx = _todos.indexWhere((t) => t.id == id);
     if (idx == -1) return;

@@ -45,10 +45,10 @@ class TodosScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.only(bottom: 80),
             children: [
-              if (pending.isNotEmpty) ...
-                  _buildSection(context, 'Pending', pending, provider),
-              if (done.isNotEmpty) ...
-                  _buildSection(context, 'Completed', done, provider),
+              if (pending.isNotEmpty)
+                ..._buildSection(context, 'Pending', pending, provider),
+              if (done.isNotEmpty)
+                ..._buildSection(context, 'Completed', done, provider),
             ],
           );
         },
@@ -99,6 +99,13 @@ class _TodoTile extends StatelessWidget {
       onDismissed: (_) => provider.delete(todo.id),
       child: Card(
         child: ListTile(
+          // Tap anywhere on the tile to edit
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddTodoScreen(todo: todo),
+            ),
+          ),
           leading: Checkbox(
             value: todo.isDone,
             onChanged: (_) => provider.toggle(todo.id),
@@ -107,8 +114,7 @@ class _TodoTile extends StatelessWidget {
           title: Text(
             todo.title,
             style: TextStyle(
-              decoration:
-                  todo.isDone ? TextDecoration.lineThrough : null,
+              decoration: todo.isDone ? TextDecoration.lineThrough : null,
               color: todo.isDone ? Colors.grey : null,
             ),
           ),
@@ -125,13 +131,13 @@ class _TodoTile extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       fmt.format(todo.dueDate!),
-                      style: const TextStyle(
-                          fontSize: 11, color: Colors.orange),
+                      style: const TextStyle(fontSize: 11, color: Colors.orange),
                     ),
                   ],
                 ),
             ],
           ),
+          trailing: const Icon(Icons.edit_outlined, size: 16, color: Colors.grey),
         ),
       ),
     );

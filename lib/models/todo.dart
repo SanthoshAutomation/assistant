@@ -26,18 +26,17 @@ class Todo {
     DateTime? dueDate,
     int? notificationId,
     bool? synced,
-  }) {
-    return Todo(
-      id: id,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      isDone: isDone ?? this.isDone,
-      dueDate: dueDate ?? this.dueDate,
-      notificationId: notificationId ?? this.notificationId,
-      synced: synced ?? this.synced,
-      createdAt: createdAt,
-    );
-  }
+  }) =>
+      Todo(
+        id: id,
+        title: title ?? this.title,
+        description: description ?? this.description,
+        isDone: isDone ?? this.isDone,
+        dueDate: dueDate ?? this.dueDate,
+        notificationId: notificationId ?? this.notificationId,
+        synced: synced ?? this.synced,
+        createdAt: createdAt,
+      );
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -61,6 +60,22 @@ class Todo {
         notificationId: map['notification_id'] as int?,
         synced: (map['synced'] as int) == 1,
         createdAt: DateTime.parse(map['created_at'] as String),
+      );
+
+  /// Parse a row returned by the PHP API (all values are strings from PDO).
+  factory Todo.fromServerMap(Map<String, dynamic> map) => Todo(
+        id: map['id'] as String,
+        title: map['title'] as String,
+        description: map['description'] as String?,
+        isDone: map['is_done'].toString() == '1',
+        dueDate: (map['due_date'] != null &&
+                (map['due_date'] as String).isNotEmpty)
+            ? DateTime.tryParse(map['due_date'] as String)
+            : null,
+        synced: true,
+        createdAt: DateTime.tryParse(
+                map['created_at'] as String? ?? '') ??
+            DateTime.now(),
       );
 
   Map<String, dynamic> toJson() => {
