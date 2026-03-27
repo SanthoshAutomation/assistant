@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+handleCors();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDb();
@@ -19,16 +20,16 @@ switch ($method) {
             INSERT INTO todos (id, title, description, is_done, due_date, created_at)
             VALUES (:id, :title, :description, :is_done, :due_date, :created_at)
             ON DUPLICATE KEY UPDATE
-              title = VALUES(title),
+              title       = VALUES(title),
               description = VALUES(description),
-              is_done = VALUES(is_done),
-              due_date = VALUES(due_date)
+              is_done     = VALUES(is_done),
+              due_date    = VALUES(due_date)
         ');
         $stmt->execute([
             ':id'          => $data['id'],
             ':title'       => $data['title'],
             ':description' => $data['description'] ?? null,
-            ':is_done'     => $data['is_done'] ? 1 : 0,
+            ':is_done'     => ($data['is_done'] ?? 0) ? 1 : 0,
             ':due_date'    => $data['due_date'] ?? null,
             ':created_at'  => $data['created_at'] ?? date('c'),
         ]);
