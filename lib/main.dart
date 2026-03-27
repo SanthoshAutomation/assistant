@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'utils/platform_init.dart';
 import 'providers/notes_provider.dart';
 import 'providers/todos_provider.dart';
 import 'providers/events_provider.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // On mobile: inits timezone + notifications. On web: no-op.
+  await initPlatform();
   runApp(const AssistantApp());
 }
 
@@ -34,10 +38,7 @@ class AssistantApp extends StatelessWidget {
             elevation: 2,
             margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           ),
-          appBarTheme: const AppBarTheme(
-            centerTitle: true,
-            elevation: 0,
-          ),
+          appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
         ),
         home: const HomeScreen(),
       ),
