@@ -1,5 +1,5 @@
 name: assistant
-description: Personal assistant app — notes, todos, calendar. Web + Android.
+description: Personal assistant app — notes, todos, calendar, alarms with local SQLite and cloud sync.
 publish_to: 'none'
 version: 1.0.0+1
 
