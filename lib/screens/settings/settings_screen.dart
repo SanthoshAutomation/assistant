@@ -5,6 +5,8 @@ import '../../providers/notes_provider.dart';
 import '../../providers/todos_provider.dart';
 import '../../providers/events_provider.dart';
 
+/// Android-only screen shown via the Settings tab.
+/// On web, the Info tab is shown instead (see HomeScreen).
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -37,28 +39,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveUrl() async {
     await SyncService.setApiUrl(_urlCtrl.text);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('API URL saved ✓')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('API URL saved ✓')));
     }
   }
 
   Future<void> _sync() async {
-    await SyncService.setApiUrl(_urlCtrl.text); // save latest URL first
+    await SyncService.setApiUrl(_urlCtrl.text);
     setState(() => _isSyncing = true);
     final result = await SyncService.syncToCloud();
     setState(() => _isSyncing = false);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.message),
-          backgroundColor: result.success ? Colors.green : Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result.message),
+        backgroundColor: result.success ? Colors.green : Colors.red,
+      ));
     }
   }
 
-  /// Pull all data from the server then reload providers so the UI updates.
   Future<void> _pull() async {
     await SyncService.setApiUrl(_urlCtrl.text);
     setState(() => _isPulling = true);
@@ -66,19 +64,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isPulling = false);
     if (mounted) {
       if (result.success) {
-        // Reload all providers so the pulled data appears immediately
         await Future.wait([
           context.read<NotesProvider>().load(),
           context.read<TodosProvider>().load(),
           context.read<EventsProvider>().load(),
         ]);
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.message),
-          backgroundColor: result.success ? Colors.green : Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result.message),
+        backgroundColor: result.success ? Colors.green : Colors.red,
+      ));
     }
   }
 
@@ -105,18 +100,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Icon(Icons.cloud_sync,
                           color: Theme.of(context).colorScheme.primary),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Cloud Sync (Hostinger)',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
+                      const Text('Cloud Sync (Hostinger)',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Enter your Hostinger PHP API base URL. '  
-                    'Use \u201cPush to Cloud\u201d to back up, and \u201cPull from Cloud\u201d '
-                    'to restore on a new phone or after reinstalling.',
+                    'Push backs up local data. Pull restores it on a new phone or after reinstalling.',
                     style: TextStyle(color: Colors.grey, fontSize: 13),
                   ),
                   const SizedBox(height: 12),
@@ -124,14 +115,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     controller: _urlCtrl,
                     decoration: const InputDecoration(
                       labelText: 'API Base URL',
-                      hintText: 'https://yourdomain.com/api',
+                      hintText: 'https://app.sanlabs.in/assistant/api',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.link),
                     ),
                     keyboardType: TextInputType.url,
                   ),
                   const SizedBox(height: 12),
-                  // Push row
                   Row(
                     children: [
                       Expanded(
@@ -150,16 +140,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
-                                )
+                                      strokeWidth: 2, color: Colors.white))
                               : const Icon(Icons.cloud_upload, size: 18),
-                          label: Text(_isSyncing ? 'Syncing...' : 'Push to Cloud'),
+                          label: Text(
+                              _isSyncing ? 'Pushing...' : 'Push to Cloud'),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  // Pull row — full width for emphasis
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -168,18 +157,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ? const SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.cloud_download_outlined, size: 18),
-                      label: Text(
-                        _isPulling ? 'Pulling...' : 'Pull from Cloud (Restore)',
-                      ),
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.cloud_download_outlined,
+                              size: 18),
+                      label: Text(_isPulling
+                          ? 'Pulling...'
+                          : 'Pull from Cloud (Restore)'),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Pull restores all your data from the server \u2014 use after reinstalling or on a new phone.',
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),
@@ -203,11 +187,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const _InfoRow(label: 'App', value: 'My Assistant'),
-                  const _InfoRow(label: 'Version', value: '1.0.0'),
-                  const _InfoRow(label: 'Storage', value: 'Local SQLite'),
-                  const _InfoRow(
-                      label: 'Cloud', value: 'Hostinger MySQL (manual sync)'),
+                  const _Row(label: 'App', value: 'My Assistant'),
+                  const _Row(label: 'Version', value: '1.0.0'),
+                  const _Row(label: 'Storage', value: 'Local SQLite + Hostinger MySQL'),
+                  const _Row(label: 'Web app', value: 'app.sanlabs.in/assistant'),
                 ],
               ),
             ),
@@ -218,10 +201,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-class _InfoRow extends StatelessWidget {
+class _Row extends StatelessWidget {
   final String label;
   final String value;
-  const _InfoRow({required this.label, required this.value});
+  const _Row({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -235,8 +218,7 @@ class _InfoRow extends StatelessWidget {
                 style: const TextStyle(color: Colors.grey, fontSize: 13)),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 13)),
-          ),
+              child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
       ),
     );
